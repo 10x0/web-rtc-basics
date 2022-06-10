@@ -37,14 +37,23 @@
 	}
 }
 
+video {
+	width: 50%;
+}
+
 button {
 	outline: none;
 	border: none;
 	border-radius: 12px;
 	padding: 1rem 2rem;
-	background: dodgerblue;
+	background: #3cb371;
 	color: white;
 	font-size: 2rem;
+}
+
+button:hover {
+	background: #3cb371dd;
+	cursor: pointer;
 }
 
 textarea {
