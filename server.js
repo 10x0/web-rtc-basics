@@ -5,6 +5,8 @@ const io = require('socket.io')({ path: '/webrtc' });
 const app = express();
 const PORT = 8080;
 
+app.get('/',(req,res)=>res.send('Healthy');
+
 const server = app.listen(PORT, () =>
 	console.log(`WebRTC signal server running on ${PORT}`)
 );
