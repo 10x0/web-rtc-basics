@@ -42,9 +42,14 @@ button {
 	border: none;
 	border-radius: 12px;
 	padding: 1rem 2rem;
-	background: dodgerblue;
+	background: #1e90ff;
 	color: white;
 	font-size: 2rem;
+}
+
+button:hover {
+	background: #1e90ffdd;
+	cursor: pointer;
 }
 
 textarea {

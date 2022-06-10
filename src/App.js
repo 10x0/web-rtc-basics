@@ -16,11 +16,21 @@ function App() {
 	const localRef = useRef();
 	const remoteRef = useRef();
 	const textRef = useRef();
+	const candidates = useRef([]);
 	const pc = useRef(new RTCPeerConnection(null));
 
 	useEffect(() => {
 		socket.on('connection-success', (success) => {
-			console.log('Connection successful.');
+			console.log(success);
+		});
+
+		socket.on('sdp', (data) => {
+			console.log('*SDP RECEIVED.');
+			textRef.current.value = JSON.stringify(data.sdp);
+		});
+
+		socket.on('candidate', (candidate) => {
+			candidates.current = [...candidates.current, candidate];
 		});
 
 		navigator.mediaDevices
@@ -37,7 +47,7 @@ function App() {
 		const _pc = new RTCPeerConnection(null);
 		_pc.onicecandidate = (e) => {
 			if (e.candidate) {
-				console.log(JSON.stringify(e.candidate));
+				socket.emit('candidate', e.candidate);
 			}
 		};
 
@@ -55,44 +65,52 @@ function App() {
 	}, []);
 
 	const createOffer = () => {
+		console.log('OFFER CREATED.');
 		pc.current
 			.createOffer({
 				offerToReceiveAudio: 1,
 				offerToReceiveVideo: 1,
 			})
 			.then((sdp) => {
-				console.log(JSON.stringify(sdp));
 				pc.current.setLocalDescription(sdp);
+
+				socket.emit('sdp', {
+					sdp,
+				});
 			})
 			.catch((error) => console.log(error));
 	};
 
 	const createAnswer = () => {
+		console.log('ANSWER CREATED.');
 		pc.current
 			.createAnswer({
 				offerToReceiveAudio: 1,
 				offerToReceiveVideo: 1,
 			})
 			.then((sdp) => {
-				console.log(JSON.stringify(sdp));
 				pc.current.setLocalDescription(sdp);
+
+				socket.emit('sdp', { sdp });
 			})
 			.catch((error) => console.log(error));
 	};
 
 	const setRemoteDescription = () => {
 		// GET THE SDP VALUE
+		console.log('Remote Description set.');
 		const sdp = JSON.parse(textRef.current.value);
-		console.log(sdp);
 
 		pc.current.setRemoteDescription(new RTCSessionDescription(sdp));
 	};
 
 	const addCandidate = () => {
-		const candidate = JSON.parse(textRef.current.value);
-		console.log('Adding candidate');
-
-		pc.current.addIceCandidate(new RTCIceCandidate(candidate));
+		// const candidate = JSON.parse(textRef.current.value);
+		console.log('Adding candidate...');
+		candidates.current.forEach((candidate) => {
+			console.log(candidate);
+			pc.current.addIceCandidate(new RTCIceCandidate(candidate));
+		});
 	};
 
 	return (
