@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 
 import io from 'socket.io-client';
@@ -15,8 +15,9 @@ const socket = io('/webRTCPeers', {
 function App() {
 	const localRef = useRef();
 	const remoteRef = useRef();
-	const textRef = useRef();
-	const candidates = useRef([]);
+	const [call, setCall] = useState(true);
+	const [answer, setAnswer] = useState(false);
+	const [status, setStatus] = useState('Make a call.');
 	const pc = useRef(new RTCPeerConnection(null));
 
 	useEffect(() => {
@@ -25,12 +26,19 @@ function App() {
 		});
 
 		socket.on('sdp', (data) => {
-			console.log('*SDP RECEIVED.');
-			textRef.current.value = JSON.stringify(data.sdp);
+			pc.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
+
+			if (data.sdp.type === 'offer') {
+				setCall(false);
+				setAnswer(true);
+				setStatus('Incoming call...');
+			} else {
+				setStatus('Ongoing call.');
+			}
 		});
 
 		socket.on('candidate', (candidate) => {
-			candidates.current = [...candidates.current, candidate];
+			pc.current.addIceCandidate(new RTCIceCandidate(candidate));
 		});
 
 		navigator.mediaDevices
@@ -64,53 +72,42 @@ function App() {
 		pc.current = _pc;
 	}, []);
 
+	const sendToPeer = (eventType, payload) => {
+		socket.emit(eventType, payload);
+	};
+
+	const processSDP = (sdp) => {
+		pc.current.setLocalDescription(sdp);
+
+		sendToPeer('sdp', { sdp });
+	};
+
 	const createOffer = () => {
-		console.log('OFFER CREATED.');
 		pc.current
 			.createOffer({
 				offerToReceiveAudio: 1,
 				offerToReceiveVideo: 1,
 			})
 			.then((sdp) => {
-				pc.current.setLocalDescription(sdp);
-
-				socket.emit('sdp', {
-					sdp,
-				});
+				processSDP(sdp);
+				setCall(false);
+				setStatus('Calling.....');
 			})
 			.catch((error) => console.log(error));
 	};
 
 	const createAnswer = () => {
-		console.log('ANSWER CREATED.');
 		pc.current
 			.createAnswer({
 				offerToReceiveAudio: 1,
 				offerToReceiveVideo: 1,
 			})
 			.then((sdp) => {
-				pc.current.setLocalDescription(sdp);
-
-				socket.emit('sdp', { sdp });
+				processSDP(sdp);
+				setAnswer(false);
+				setStatus('Ongoing Call.');
 			})
 			.catch((error) => console.log(error));
-	};
-
-	const setRemoteDescription = () => {
-		// GET THE SDP VALUE
-		console.log('Remote Description set.');
-		const sdp = JSON.parse(textRef.current.value);
-
-		pc.current.setRemoteDescription(new RTCSessionDescription(sdp));
-	};
-
-	const addCandidate = () => {
-		// const candidate = JSON.parse(textRef.current.value);
-		console.log('Adding candidate...');
-		candidates.current.forEach((candidate) => {
-			console.log(candidate);
-			pc.current.addIceCandidate(new RTCIceCandidate(candidate));
-		});
 	};
 
 	return (
@@ -119,7 +116,12 @@ function App() {
 				style={{
 					margin: '2rem',
 				}}>
-				<section style={{ display: 'flex', justifyContent: 'space-between' }}>
+				<section
+					style={{
+						display: 'flex',
+						justifyContent: 'space-between',
+						flexWrap: 'wrap',
+					}}>
 					<video ref={localRef} autoPlay />
 					<video ref={remoteRef} autoPlay />
 				</section>
@@ -129,14 +131,10 @@ function App() {
 						display: 'flex',
 						justifyContent: 'space-between',
 					}}>
-					<button onClick={createOffer}>Create Offer</button>
-					<button onClick={createAnswer}>Create Answer</button>
-					<button onClick={setRemoteDescription}>Set Remote Description</button>
-					<button onClick={addCandidate}>Add candidate</button>
+					{call && <button onClick={createOffer}>Call now</button>}
+					{answer && <button onClick={createAnswer}>Answer</button>}
 				</section>
-				<section style={{ margin: '2rem' }}>
-					<textarea ref={textRef}></textarea>
-				</section>
+				<section>{status}</section>
 			</section>
 		</div>
 	);
